@@ -1,0 +1,30 @@
+name: Publish Headlamp chart to GHCR
+
+# Publishes charts/headlamp (the tpl-patched 0.46.0) as an OCI chart to
+# ghcr.io/devopsmindset. Triggered by pushing this branch, or manually.
+on:
+  push:
+    branches: [publish-chart-ghcr]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Package and push chart
+        run: |
+          set -euo pipefail
+          helm package charts/headlamp --destination "$RUNNER_TEMP"
+          tgz="$(ls "$RUNNER_TEMP"/headlamp-*.tgz)"
+          echo "Packaged: $tgz"
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push "$tgz" oci://ghcr.io/${{ github.repository_owner }}
+          echo "Pushed to oci://ghcr.io/${{ github.repository_owner }}/headlamp"
